@@ -1,14 +1,19 @@
+
+
+### `app.py`
+
 python
 ```
 
 import streamlit as st
 
 st.set_page_config(
-    page_title="어르신을 위한 쉬운 키오스크",
+    page_title="쉬운 키오스크",
     page_icon="☕",
     layout="centered"
 )
 
+# 화면 설정
 st.markdown("""
 <style>
 .stApp {
@@ -22,42 +27,43 @@ h1 {
 h2 {
     font-size: 28px !important;
 }
-p, label, .stMarkdown {
-    font-size: 22px !important;
+p, label, div {
+    font-size: 20px;
 }
 .stButton > button {
     width: 100%;
-    min-height: 65px;
-    font-size: 23px;
+    min-height: 60px;
+    font-size: 22px;
     font-weight: bold;
-    background-color: #F2C078;
-    color: #222222;
     border-radius: 12px;
-    border: 2px solid #D99A36;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("☕ 쉬운 키오스크")
-st.subheader("어르신도 쉽게 따라 하는 주문 연습")
+st.subheader("어르신을 위한 키오스크 사용 연습")
+st.info("천천히 읽고 큰 버튼을 눌러 보세요.")
 
-st.info("💡 천천히 읽고 큰 버튼을 눌러 보세요.")
-
-menus = {
+MENUS = {
     "아메리카노": 3000,
     "카페라떼": 4000,
     "녹차": 3500,
-    "오렌지주스": 4000
+    "오렌지주스": 4000,
 }
 
+# 초기 상태
 if "step" not in st.session_state:
     st.session_state.step = 0
+
 if "menu" not in st.session_state:
     st.session_state.menu = ""
+
 if "size" not in st.session_state:
     st.session_state.size = "보통"
+
 if "quantity" not in st.session_state:
     st.session_state.quantity = 1
+
 if "payment" not in st.session_state:
     st.session_state.payment = "신용카드"
 
@@ -65,16 +71,21 @@ step = st.session_state.step
 
 st.progress((step + 1) / 5)
 
+# 1단계: 메뉴 선택
 if step == 0:
     st.header("1단계. 메뉴 선택")
     st.write("드시고 싶은 음료를 선택하세요.")
 
-    for menu, price in menus.items():
-        if st.button(f"☕ {menu} - {price:,}원", key=menu):
+    for menu, price in MENUS.items():
+        if st.button(
+            f"☕ {menu} - {price:,}원",
+            key=f"menu_{menu}"
+        ):
             st.session_state.menu = menu
             st.session_state.step = 1
             st.rerun()
 
+# 2단계: 옵션 선택
 elif step == 1:
     st.header("2단계. 옵션 선택")
     st.write(f"선택한 메뉴: {st.session_state.menu}")
@@ -88,41 +99,49 @@ elif step == 1:
     )
 
     st.session_state.quantity = st.selectbox(
-        "몇 잔 주문하시겠어요?",
+        "주문 수량을 선택하세요.",
         [1, 2, 3, 4, 5],
         index=st.session_state.quantity - 1
     )
 
-    if st.button("다음 단계로"):
-        st.session_state.step = 2
-        st.rerun()
+    col1, col2 = st.columns(2)
 
-extra = 500 if st.session_state.size == "크게" else 0
+    with col1:
+        if st.button("다음 단계"):
+            st.session_state.step = 2
+            st.rerun()
+
+    with col2:
+        if st.button("메뉴 다시 선택"):
+            st.session_state.step = 0
+            st.rerun()
+
+# 가격 계산
+base_price = MENUS.get(st.session_state.menu, 0)
+extra_price = 500 if st.session_state.size == "크게" else 0
 total = (
-    menus.get(st.session_state.menu, 0) + extra
+    base_price + extra_price
 ) * st.session_state.quantity
 
-if step == 2:
+# 3단계: 주문 확인
+elif step == 2:
     st.header("3단계. 주문 확인")
-    st.write("주문 내용이 맞는지 확인하세요.")
 
-    st.markdown(f"""
-    **메뉴:** {st.session_state.menu}
+    st.write(f"메뉴: {st.session_state.menu}")
+    st.write(f"크기: {st.session_state.size}")
+    st.write(f"수량: {st.session_state.quantity}잔")
+    st.write(f"총 금액: {total:,}원")
 
-    **크기:** {st.session_state.size}
+    st.info("주문 내용이 맞는지 확인하세요.")
 
-    **수량:** {st.session_state.quantity}잔
-
-    **총 금액:** {total:,}원
-    """)
-
-    if st.button("주문 확인하기"):
+    if st.button("주문 확인 후 결제"):
         st.session_state.step = 3
         st.rerun()
 
+# 4단계: 결제 연습
 elif step == 3:
     st.header("4단계. 결제")
-    st.write(f"결제할 금액은 {total:,}원입니다.")
+    st.write(f"결제할 금액: {total:,}원")
 
     st.session_state.payment = st.radio(
         "결제 방법을 선택하세요.",
@@ -130,16 +149,17 @@ elif step == 3:
     )
 
     st.warning(
-        "이 화면은 교육용입니다. 실제 돈이 결제되지 않습니다."
+        "연습용 프로그램입니다. 실제 결제는 진행되지 않습니다."
     )
 
     if st.button("결제 연습 완료"):
         st.session_state.step = 4
         st.rerun()
 
+# 5단계: 주문 완료
 elif step == 4:
     st.header("5단계. 주문 완료")
-    st.success("🎉 주문 연습을 완료했습니다!")
+    st.success("🎉 주문 연습이 완료되었습니다!")
 
     st.write(f"메뉴: {st.session_state.menu}")
     st.write(f"크기: {st.session_state.size}")
@@ -147,53 +167,32 @@ elif step == 4:
     st.write(f"결제 방법: {st.session_state.payment}")
     st.write(f"총 금액: {total:,}원")
 
-    st.info("잘하셨습니다! 실제 매장에서는 주문 번호를 확인하세요.")
+    st.info(
+        "잘하셨습니다! 실제 매장에서는 주문 번호나 영수증을 확인하세요."
+    )
 
     if st.button("처음부터 다시 연습하기"):
         for key in [
-            "step", "menu", "size", "quantity", "payment"
+            "step",
+            "menu",
+            "size",
+            "quantity",
+            "payment"
         ]:
-            del st.session_state[key]
+            if key in st.session_state:
+                del st.session_state[key]
+
         st.rerun()
 
+# 이전 단계 버튼
 if 0 < step < 4:
     if st.button("⬅️ 이전 단계"):
         st.session_state.step -= 1
         st.rerun()
 ```
 
-text
-```
+- 메인 파일 이름이 `app.py`인지 확인해.
+- `requirements.txt`가 저장소 최상위 폴더에 있는지 확인해.
+- 파일을 수정한 뒤 GitHub에 저장하고 Streamlit Cloud에서 앱을 재실행해.
 
-streamlit
-```
-
-markdown
-````
-
-# 어르신을 위한 쉬운 키오스크
-
-키오스크 사용이 어려운 어르신들을 위한 교육용 웹 프로그램입니다.
-
-## 주요 기능
-- 큰 글씨와 버튼
-- 메뉴 선택
-- 옵션 선택
-- 주문 확인
-- 결제 연습
-- 주문 완료
-- 이전 단계 이동
-
-## 실행 방법
-
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-## 개발 환경
-- Python
-- Streamlit
-
-실제 결제 기능이 없는 키오스크 연습용 프로그램입니다.
-````
+이 코드는 구문 오류 가능성을 줄여 수정한 버전이지만, 실제 오류 원인을 확정한 것은 아니야. 같은 오류가 계속 뜨면 Streamlit Cloud의 앱 관리 → Logs에 표시되는 오류 메시지 중 마지막 부분을 보내 줘. 정확한 원인을 찾아 수정해 줄게.
