@@ -1,234 +1,420 @@
+# 키오스크 사용방법 안내 앱 만들기
+
+초보자도 쉽게 사용할 수 있도록 단계별 키오스크 체험 학습 앱을 설계하겠습니다. 음식점에서 음식을 주문하는 상황을 중심으로, 화면의 안내를 따라 직접 선택하고 주문을 완료하는 방식입니다.
+
+실제 키오스크를 사용하기 전에 연습할 수 있도록 만들며, 스마트폰과 PC 모두에서 사용할 수 있는 Streamlit 앱으로 구현합니다. 별도의 AI API 없이 동작하도록 구성해 API 키 설정이나 추가 비용 없이 배포할 수 있습니다.
+
+## 1. 앱 기획 설명
+
+セルフレジとは？飲食店に導入するメリット、種類や導入のポイントを徹底解説｜お役立ち情報
+
+### ① 키오스크 사용법 배우기
+
+학습 안내
+
+키오스크의 기본 사용 순서와 주의 사항을 그림과 설명으로 배웁니다.
+
+#hospitalidad #franquicias #restaurantes #midmarket #omnicanalidad #leadin #transformacióndigital #customerexperience #crecimiento | Leadin IT Services
+
+### ② 주문 단계별 체험
+
+직접 조작하는 실습
+
+메뉴 선택 → 수량 확인 → 장바구니 확인 → 결제 방법 선택 순서로 연습합니다.
+
+Nova self Ordering Kiosk
+
+### ③ 결제 및 주문 완료
+
+마무리 학습
+
+카드·간편결제·현금 등 결제 방법을 확인하고, 주문번호와 영수증 확인 방법을 배웁니다.
+
+### 주요 기능
+
+- 단계별 안내: 현재 해야 할 일을 한 단계씩 보여줍니다.
+- 가상 주문 체험: 메뉴와 수량을 직접 선택하고 합계를 확인합니다.
+- 결제 방법 학습: 실제 결제 없이 결제 절차만 연습합니다.
+- 진행률 표시: 전체 과정 중 어디까지 완료했는지 보여줍니다.
+- 학습 퀴즈: 마지막에 간단한 문제를 풀어 이해도를 확인합니다.
+- 초기화 기능: 언제든 처음부터 다시 연습할 수 있습니다.
+
+## 2. `app.py` — 전체 실행 코드
+
+아래 코드를 `app.py` 파일에 그대로 복사하세요. 메뉴 선택, 장바구니, 결제 절차, 진행률, 퀴즈와 초기화 기능까지 포함한 완성 코드입니다.
+
+python
+```
 
 import streamlit as st
 
 st.set_page_config(
-    page_title="편한 키오스크",
-    page_icon="🖐️",
+    page_title="키오스크 사용 연습",
+    page_icon="🖥️",
     layout="centered",
     initial_sidebar_state="expanded",
 )
 
-SIZE_MAP = {
-    "작게": 16,
-    "보통": 19,
-    "크게": 23,
-    "아주 크게": 28,
+MENU = {
+    "🍔 불고기버거": 5500,
+    "🍟 감자튀김": 2500,
+    "🥤 콜라": 2000,
+    "🍗 치킨너겟": 3500,
+    "🍦 아이스크림": 1800,
 }
 
+STEPS = [
+    "메뉴 선택",
+    "주문 확인",
+    "결제 방법",
+    "주문 완료",
+]
 
-def set_page(target):
-    st.session_state["page_choice"] = target
+def initialize():
+    st.session_state.stage = 0
+    st.session_state.cart = {}
+    st.session_state.payment = None
+    st.session_state.quiz_answers = {}
+    st.session_state.quiz_submitted = False
 
+if "stage" not in st.session_state:
+    initialize()
+
+if "cart" not in st.session_state:
+    initialize()
+
+if "payment" not in st.session_state:
+    st.session_state.payment = None
+
+if "quiz_answers" not in st.session_state:
+    st.session_state.quiz_answers = {}
+
+if "quiz_submitted" not in st.session_state:
+    st.session_state.quiz_submitted = False
+
+def money(amount):
+    return f"{amount:,}원"
+
+def cart_total():
+    return sum(
+        MENU[item] * quantity
+        for item, quantity in st.session_state.cart.items()
+    )
+
+def go_to(stage):
+    st.session_state.stage = stage
+
+st.title("🖥️ 키오스크 사용 연습")
+st.caption("천천히 따라 해 보세요. 실제 결제는 진행되지 않습니다.")
 
 with st.sidebar:
-    st.title("🖐️ 편한 키오스크")
-    st.caption("누구나 천천히, 쉽게")
-
-    font_choice = st.select_slider(
-        "글자 크기 변경",
-        options=list(SIZE_MAP.keys()),
-        value="크게",
-        key="font_size_choice",
-    )
-
-    st.divider()
-
-    if "page_choice" not in st.session_state:
-        st.session_state["page_choice"] = "처음 화면"
-
+    st.header("📚 학습 메뉴")
     page = st.radio(
-        "메뉴",
-        ["처음 화면", "주문 방법 배우기", "도움이 필요해요"],
-        key="page_choice",
+        "원하는 학습을 선택하세요.",
+        ["사용법 배우기", "주문 체험하기", "확인 퀴즈"],
+        label_visibility="collapsed",
     )
-
-    st.caption("키오스크 사용 방법을 배우는 안내용 앱입니다.")
-
-
-font_size = SIZE_MAP.get(font_choice, 23)
-
-st.markdown(
-    f"""
-    <style>
-    html, body, [class*="css"] {{
-        font-size: {font_size}px;
-    }}
-    .block-container {{
-        max-width: 850px;
-        padding-top: 1.8rem;
-        padding-bottom: 3rem;
-    }}
-    div.stButton > button {{
-        min-height: 3.2rem;
-        font-size: {max(font_size, 18)}px;
-        font-weight: 650;
-        border-radius: 12px;
-        width: 100%;
-    }}
-    div[data-testid="stAlert"] {{
-        border-radius: 12px;
-    }}
-    .hero {{
-        padding: 1.4rem;
-        border-radius: 18px;
-        background: #F2F7F4;
-        border: 1px solid #D8E7DE;
-        margin-bottom: 1rem;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    """
-    <div class="hero">
-      <h1>편한 키오스크</h1>
-      <p>화면을 하나씩 따라 하면 주문 방법을 쉽게 배울 수 있어요.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if page == "처음 화면":
-    st.subheader("어떤 도움이 필요하세요?")
-    st.write("원하는 항목을 선택해 주세요. 서두르지 않아도 괜찮아요.")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("### 🛒")
-        st.markdown("**주문 방법 배우기**")
-        st.write("메뉴 선택부터 결제까지 순서대로 알아봐요.")
-        st.button(
-            "주문 방법 보기",
-            key="go_order",
-            type="primary",
-            on_click=set_page,
-            args=("주문 방법 배우기",),
-        )
-
-    with col2:
-        st.markdown("### 🙋")
-        st.markdown("**도움 요청하기**")
-        st.write("어려운 상황에서 도움을 요청하는 방법이에요.")
-        st.button(
-            "도움 요청 방법 보기",
-            key="go_help",
-            on_click=set_page,
-            args=("도움이 필요해요",),
-        )
-
     st.divider()
-    st.subheader("주문할 때 기억하세요")
-    st.markdown(
-        """
-        - 천천히 눌러도 괜찮아요.
-        - 잘못 눌렀다면 화면의 '뒤로' 또는 '취소'를 찾아보세요.
-        - 결제 전에는 메뉴와 금액을 한 번 더 확인하세요.
-        """
+    st.subheader("내 학습 진행률")
+    completed_steps = st.session_state.stage
+    st.progress(completed_steps / len(STEPS))
+    st.caption(f"{completed_steps}/{len(STEPS)}단계 완료")
+
+    if st.button("🔄 처음부터 다시 하기", use_container_width=True):
+        initialize()
+        st.rerun()
+
+if page == "사용법 배우기":
+    st.header("키오스크는 이렇게 사용해요")
+    st.write(
+        "키오스크는 화면을 직접 눌러 상품을 선택하고 "
+        "주문하는 무인 주문 기기입니다."
     )
 
-elif page == "주문 방법 배우기":
-    st.subheader("키오스크 주문 5단계")
-    st.write("배우고 싶은 단계를 선택해 보세요.")
-
-    steps = [
-        {
-            "title": "1단계 · 주문 시작",
-            "short": "화면에서 '주문하기' 또는 '시작'을 눌러요.",
-            "detail": "처음 화면에서 '주문하기'나 '시작하기'처럼 적힌 버튼을 찾아 눌러 보세요. 매장마다 표현은 다를 수 있어요.",
-            "tip": "매장 식사와 포장 중 선택하는 화면이 나오면 원하는 방식을 골라요.",
-        },
-        {
-            "title": "2단계 · 메뉴 고르기",
-            "short": "원하는 음식이나 음료를 선택해요.",
-            "detail": "메뉴 종류를 살펴보고 원하는 메뉴의 사진이나 이름을 눌러요. 메뉴 이름과 가격도 함께 확인해요.",
-            "tip": "메뉴가 많으면 커피, 음료, 식사 같은 분류를 먼저 눌러 보세요.",
-        },
-        {
-            "title": "3단계 · 옵션과 수량 확인",
-            "short": "필요한 옵션과 수량을 선택해요.",
-            "detail": "크기, 온도, 추가 재료, 수량 등을 고르는 화면이 나올 수 있어요. 원하는 항목만 선택하면 돼요.",
-            "tip": "선택을 마쳤다면 '담기', '추가', '확인' 버튼을 찾아요.",
-        },
-        {
-            "title": "4단계 · 주문과 결제 확인",
-            "short": "주문 목록과 금액을 확인한 뒤 결제해요.",
-            "detail": "메뉴, 수량, 총금액이 맞는지 살펴봐요. 맞다면 '결제하기'를 누르고 화면의 결제 안내를 따라요.",
-            "tip": "결제 방법이 헷갈리면 직원에게 도움을 요청하세요.",
-        },
-        {
-            "title": "5단계 · 주문 완료 확인",
-            "short": "완료 화면이나 주문 번호를 확인해요.",
-            "detail": "결제가 끝나면 주문 완료 화면이나 주문 번호가 표시될 수 있어요. 화면의 안내를 확인하세요.",
-            "tip": "주문 번호가 표시되면 음식을 받을 때 필요할 수 있어요.",
-        },
+    lessons = [
+        (
+            "1. 주문 시작하기",
+            "화면에서 '주문하기' 또는 원하는 매장 이용 방식을 선택합니다.",
+            "💡",
+        ),
+        (
+            "2. 메뉴 선택하기",
+            "먹고 싶은 메뉴를 누르고 수량과 옵션을 확인합니다.",
+            "🍔",
+        ),
+        (
+            "3. 주문 내역 확인하기",
+            "메뉴 이름, 수량, 가격과 최종 합계가 맞는지 확인합니다.",
+            "🧾",
+        ),
+        (
+            "4. 결제 방법 선택하기",
+            "카드, 간편결제 등 기기에서 지원하는 결제 방법을 선택합니다.",
+            "💳",
+        ),
+        (
+            "5. 주문 완료 확인하기",
+            "주문번호와 영수증을 확인하고 안내에 따라 음식을 받습니다.",
+            "✅",
+        ),
     ]
 
-    selected_step = st.radio(
-        "배우고 싶은 단계",
-        options=range(len(steps)),
-        format_func=lambda i: steps[i]["title"],
+    for title, description, emoji in lessons:
+        with st.container(border=True):
+            st.subheader(f"{emoji} {title}")
+            st.write(description)
+
+    st.info(
+        "어려우면 주변 직원에게 도움을 요청해도 괜찮아요. "
+        "결제 전에는 반드시 주문 내역과 금액을 확인하세요."
     )
 
-    item = steps[selected_step]
+    if st.button("실제처럼 주문 연습하기 ➜", type="primary"):
+        go_to(0)
+        st.rerun()
 
-    st.markdown(f"### {item['title']}")
-    st.info(item["short"])
-    st.write(item["detail"])
-    st.success("💡 쉬운 팁: " + item["tip"])
+elif page == "주문 체험하기":
+    stage = st.session_state.stage
+    st.header("🍽️ 가상 음식점 주문")
+    st.write("화면의 안내에 따라 한 단계씩 진행해 보세요.")
 
-    st.divider()
-    st.subheader("주문 전 마지막 확인")
-    st.checkbox("원하는 메뉴를 골랐어요.")
-    st.checkbox("수량과 옵션을 확인했어요.")
-    st.checkbox("결제할 금액을 확인했어요.")
-    st.caption("연습용 확인표이며 실제 주문이나 결제는 진행하지 않습니다.")
+    st.progress((stage + 1) / len(STEPS))
+    st.caption(f"현재 단계: {stage + 1} / {len(STEPS)} · {STEPS[stage]}")
 
-elif page == "도움이 필요해요":
-    st.subheader("어려운 상황에서는 이렇게 해 보세요.")
+    if stage == 0:
+        st.subheader("1단계. 먹고 싶은 메뉴를 선택하세요")
+        st.write("메뉴 아래에서 수량을 선택하면 주문에 추가됩니다.")
 
-    situations = {
-        "어디를 눌러야 할지 모르겠어요": (
-            "화면을 잠시 살펴보고 '시작', '다음', '확인' 같은 글자를 찾아보세요.",
-            "죄송하지만 키오스크 사용을 도와주실 수 있을까요?",
+        for item, price in MENU.items():
+            with st.container(border=True):
+                left, right = st.columns([3, 2])
+                with left:
+                    st.markdown(f"**{item}**")
+                    st.write(money(price))
+                with right:
+                    quantity = st.number_input(
+                        f"{item} 수량",
+                        min_value=0,
+                        max_value=10,
+                        value=st.session_state.cart.get(item, 0),
+                        step=1,
+                        key=f"qty_{item}",
+                    )
+                    st.session_state.cart[item] = quantity
+
+        st.session_state.cart = {
+            item: quantity
+            for item, quantity in st.session_state.cart.items()
+            if quantity > 0
+        }
+
+        st.metric("현재 주문 금액", money(cart_total()))
+
+        if st.button("주문 내역 확인하기 ➜", type="primary"):
+            if not st.session_state.cart:
+                st.warning("메뉴를 한 개 이상 선택해 주세요.")
+            else:
+                go_to(1)
+                st.rerun()
+
+    elif stage == 1:
+        st.subheader("2단계. 주문 내역을 확인하세요")
+        st.write("선택한 메뉴와 수량이 맞는지 확인합니다.")
+
+        for item, quantity in st.session_state.cart.items():
+            subtotal = MENU[item] * quantity
+            st.write(
+                f"- {item} × {quantity}개 — {money(subtotal)}"
+            )
+
+        st.divider()
+        st.metric("총 주문 금액", money(cart_total()))
+        st.warning("실제 주문에서는 결제하기 전에 금액을 꼭 확인하세요.")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("← 메뉴 수정하기"):
+                go_to(0)
+                st.rerun()
+        with col2:
+            if st.button("결제 방법 선택 ➜", type="primary"):
+                go_to(2)
+                st.rerun()
+
+    elif stage == 2:
+        st.subheader("3단계. 결제 방법을 선택하세요")
+        st.write(f"결제할 금액: **{money(cart_total())}**")
+        st.info("이 화면은 학습용입니다. 실제 결제는 발생하지 않습니다.")
+
+        payment = st.radio(
+            "어떤 방법으로 결제할까요?",
+            ["💳 카드 결제", "📱 간편결제", "💵 현금 결제"],
+            index=(
+                ["💳 카드 결제", "📱 간편결제", "💵 현금 결제"].index(
+                    st.session_state.payment
+                )
+                if st.session_state.payment in [
+                    "💳 카드 결제", "📱 간편결제", "💵 현금 결제"
+                ]
+                else 0
+            ),
+        )
+
+        with st.container(border=True):
+            if payment == "💳 카드 결제":
+                st.write("1. 카드 투입구 또는 카드 태그 위치를 확인합니다.")
+                st.write("2. 기기의 안내에 따라 카드를 사용합니다.")
+                st.write("3. 결제 완료 메시지를 확인합니다.")
+            elif payment == "📱 간편결제":
+                st.write("1. 기기가 간편결제를 지원하는지 확인합니다.")
+                st.write("2. 화면 안내에 따라 휴대전화를 사용합니다.")
+                st.write("3. 결제 완료 메시지를 확인합니다.")
+            else:
+                st.write("1. 현금 결제를 지원하는 기기인지 확인합니다.")
+                st.write("2. 안내된 투입구에 현금을 넣습니다.")
+                st.write("3. 거스름돈이 있다면 꼭 확인합니다.")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("← 주문 내역으로"):
+                go_to(1)
+                st.rerun()
+        with col2:
+            if st.button("가상 결제 완료하기 ➜", type="primary"):
+                st.session_state.payment = payment
+                go_to(3)
+                st.rerun()
+
+    else:
+        st.success("🎉 주문 체험을 완료했습니다!")
+        st.balloons()
+        st.subheader("주문 완료 내역")
+        st.write("가상 주문번호: **K2026-001**")
+        st.write(f"결제 방법: {st.session_state.payment}")
+        st.write(f"총 주문 금액: **{money(cart_total())}**")
+        st.write("주문번호와 영수증을 확인한 뒤 음식을 받으면 됩니다.")
+        st.caption("이 주문번호는 연습용이며 실제 주문이 아닙니다.")
+
+        if st.button("주문 한 번 더 연습하기", type="primary"):
+            initialize()
+            st.rerun()
+
+elif page == "확인 퀴즈":
+    st.header("📝 키오스크 사용 확인 퀴즈")
+    st.write("문제를 읽고 가장 알맞은 답을 선택해 보세요.")
+
+    questions = [
+        (
+            "1. 결제하기 전에 가장 먼저 확인할 것은?",
+            [
+                "화면 색상",
+                "메뉴와 최종 결제 금액",
+                "옆 사람의 주문",
+            ],
+            1,
+            "메뉴, 수량, 최종 금액이 맞는지 확인해야 합니다.",
         ),
-        "잘못 선택했어요": (
-            "화면에 '뒤로', '취소', '삭제'가 있는지 확인하세요. 결제 전이라면 주문 목록을 살펴보세요.",
-            "선택을 잘못했는데 취소하는 방법을 알려주시겠어요?",
+        (
+            "2. 키오스크 사용법을 잘 모르겠다면?",
+            [
+                "아무 버튼이나 누른다",
+                "바로 결제한다",
+                "직원에게 도움을 요청한다",
+            ],
+            2,
+            "직원에게 도움을 요청하면 안전하게 이용할 수 있습니다.",
         ),
-        "결제가 진행되지 않아요": (
-            "같은 버튼을 여러 번 누르지 말고 화면의 안내를 확인하세요. 결제 여부가 불확실하면 직원에게 먼저 물어보세요.",
-            "결제가 완료됐는지 확인하고 도와주실 수 있을까요?",
+        (
+            "3. 주문을 마친 다음 해야 할 일은?",
+            [
+                "주문번호와 영수증을 확인한다",
+                "화면을 다시 누른다",
+                "주문 내역을 확인하지 않는다",
+            ],
+            0,
+            "주문번호와 영수증을 확인하고 수령 안내를 따르면 됩니다.",
         ),
-        "화면이 멈췄어요": (
-            "버튼을 계속 누르지 말고 잠시 기다려 보세요. 화면이 계속 멈춰 있다면 직원에게 알려주세요.",
-            "키오스크 화면이 멈춘 것 같아요. 확인해 주시겠어요?",
+        (
+            "4. 이 연습 앱에서 결제를 완료하면 실제 돈이 나갈까요?",
+            [
+                "네, 항상 결제된다",
+                "아니요, 가상 체험이다",
+                "카드가 있어야만 결제된다",
+            ],
+            1,
+            "이 앱은 학습용 시뮬레이션이며 실제 결제 기능이 없습니다.",
         ),
-    }
+    ]
 
-    situation = st.selectbox(
-        "어떤 상황인가요?",
-        list(situations.keys()),
-    )
+    with st.form("quiz_form"):
+        answers = {}
+        for index, (question, options, correct, explanation) in enumerate(
+            questions
+        ):
+            answers[index] = st.radio(
+                question,
+                options,
+                index=None,
+                key=f"quiz_{index}",
+            )
 
-    advice, phrase = situations[situation]
+        submitted = st.form_submit_button(
+            "정답 확인하기",
+            type="primary",
+            use_container_width=True,
+        )
 
-    st.warning(advice)
-    st.markdown("### 직원에게 이렇게 말해 보세요")
-    st.info(f"“{phrase}”")
-    st.caption("예시 문장입니다. 편한 말로 도움을 요청해도 괜찮아요.")
+    if submitted:
+        st.session_state.quiz_answers = answers
+        st.session_state.quiz_submitted = True
 
-    st.divider()
-    st.subheader("기억하면 좋은 세 가지")
-    st.markdown(
-        """
-        1. 결제가 됐는지 모를 때는 반복 결제하지 말고 먼저 확인해요.
-        2. 카드나 소지품을 두고 오지 않았는지 확인해요.
-        3. 혼자 해결하기 어려우면 직원에게 도움을 요청해도 괜찮아요.
-        """
-    )
+    if st.session_state.quiz_submitted:
+        answers = st.session_state.quiz_answers
+        unanswered = [
+            index for index in range(len(questions))
+            if answers.get(index) is None
+        ]
+
+        if unanswered:
+            st.warning("아직 답하지 않은 문제가 있습니다. 답을 선택해 주세요.")
+            st.session_state.quiz_submitted = False
+        else:
+            score = 0
+            for index, (question, options, correct, explanation) in enumerate(
+                questions
+            ):
+                if options.index(answers[index]) == correct:
+                    score += 1
+
+            st.subheader(f"결과: {score} / {len(questions)}점")
+            st.progress(score / len(questions))
+
+            if score == len(questions):
+                st.success("완벽해요! 키오스크 사용법을 잘 이해했습니다.")
+            elif score >= 2:
+                st.info("잘했어요! 해설을 확인하고 한 번 더 연습해 보세요.")
+            else:
+                st.info("괜찮아요. 사용법 배우기 메뉴를 다시 살펴보세요.")
+
+            for index, (question, options, correct, explanation) in enumerate(
+                questions
+            ):
+                is_correct = options.index(answers[index]) == correct
+                with st.container(border=True):
+                    st.write(
+                        f"{'✅ 정답' if is_correct else '❌ 다시 확인'} — "
+                        f"{question}"
+                    )
+                    st.write(f"정답: {options[correct]}")
+                    st.caption(explanation)
+
+            if st.button("퀴즈 다시 풀기"):
+                st.session_state.quiz_answers = {}
+                st.session_state.quiz_submitted = False
+                st.rerun()
 
 st.divider()
-st.caption("편한 키오스크 · 누구나 쉽게 이용할 수 있는 키오스크 안내 서비스")
+st.caption(
+    "키오스크 사용 연습 | 교육용 가상 체험 · 실제 주문 및 결제 없음"
+)
+```
