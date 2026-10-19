@@ -190,9 +190,3 @@ if 0 < step < 4:
         st.session_state.step -= 1
         st.rerun()
 ```
-
-- 메인 파일 이름이 `app.py`인지 확인해.
-- `requirements.txt`가 저장소 최상위 폴더에 있는지 확인해.
-- 파일을 수정한 뒤 GitHub에 저장하고 Streamlit Cloud에서 앱을 재실행해.
-
-이 코드는 구문 오류 가능성을 줄여 수정한 버전이지만, 실제 오류 원인을 확정한 것은 아니야. 같은 오류가 계속 뜨면 Streamlit Cloud의 앱 관리 → Logs에 표시되는 오류 메시지 중 마지막 부분을 보내 줘. 정확한 원인을 찾아 수정해 줄게.
