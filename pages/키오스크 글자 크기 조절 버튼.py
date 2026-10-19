@@ -2,176 +2,231 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="쉬운 키오스크",
-    page_icon="☕",
-    layout="centered",
+    page_title="어르신을 위한 쉬운 키오스크",
+    page_icon="🔎",
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
+# -------------------------------
+# 1. 기본 설정
+# -------------------------------
 FONT_SIZES = {
     "보통": 18,
     "크게": 24,
     "아주 크게": 30,
 }
 
-MENU = {
-    "아메리카노": 2500,
-    "카페라떼": 3500,
-    "녹차": 3000,
-    "핫초코": 3500,
-}
+CATEGORIES = [
+    ("🍚", "식사류"),
+    ("🥤", "음료"),
+    ("🍔", "분식"),
+    ("🍰", "디저트"),
+]
 
-# 세션 상태 초기화
-if "font_choice" not in st.session_state:
-    st.session_state.font_choice = "크게"
+if "font_size_name" not in st.session_state:
+    st.session_state.font_size_name = "보통"
 
-if "cart" not in st.session_state:
-    st.session_state.cart = {}
+if "show_font_options" not in st.session_state:
+    st.session_state.show_font_options = False
 
-if "notice" not in st.session_state:
-    st.session_state.notice = ""
+if "selected_category" not in st.session_state:
+    st.session_state.selected_category = ""
 
-# 현재 글자 크기 적용
-font_size = FONT_SIZES[st.session_state.font_choice]
+if "language" not in st.session_state:
+    st.session_state.language = "한국어"
 
+font_px = FONT_SIZES[st.session_state.font_size_name]
+
+# -------------------------------
+# 2. 화면 디자인
+# -------------------------------
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-color: #F5F8FC;
-        color: #172033;
+        background-color: #F3F7FC;
+        color: #152C48;
     }}
 
-    html, body, [class*="st-"] {{
-        font-size: {font_size}px;
+    [data-testid="stHeader"] {{
+        background-color: #F3F7FC;
+    }}
+
+    .block-container {{
+        max-width: 1100px;
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
     }}
 
     h1 {{
-        font-size: {font_size * 1.6}px !important;
-        color: #174A8B !important;
+        font-size: {font_px * 1.7}px !important;
+        color: #163B68 !important;
+        font-weight: 800 !important;
     }}
 
-    h2, h3 {{
-        color: #174A8B !important;
+    h2 {{
+        font-size: {font_px * 1.4}px !important;
+        color: #163B68 !important;
+    }}
+
+    h3 {{
+        font-size: {font_px * 1.2}px !important;
+        color: #163B68 !important;
+    }}
+
+    p, label, .stMarkdown, [data-testid="stCaptionContainer"] {{
+        font-size: {font_px}px !important;
+        color: #152C48;
     }}
 
     div.stButton > button {{
-        min-height: 56px;
-        border: 2px solid #174A8B;
-        border-radius: 12px;
-        font-size: {font_size}px;
-        font-weight: bold;
+        min-height: 64px;
+        width: 100%;
+        border: 2px solid #C4D5E8;
+        border-radius: 14px;
+        background-color: #FFFFFF;
+        color: #15385F;
+        font-size: {font_px}px !important;
+        font-weight: 700;
         white-space: normal;
+        overflow-wrap: anywhere;
     }}
 
-    div[data-testid="stMarkdownContainer"] p {{
-        font-size: {font_size}px;
+    div.stButton > button[kind="primary"] {{
+        background-color: #2673D9;
+        border-color: #2673D9;
+        color: #FFFFFF;
     }}
+
+    [data-testid="stAlert"] {{
+        border-radius: 12px;
+    }}
+
+    .welcome-box {{
+        background-color: #FFFFFF;
+        border: 2px solid #D7E3F1;
+        border-radius: 18px;
+        padding: 22px;
+        margin-bottom: 16px;
+    }}
+
+    .bottom-label {{
+        text-align: center;
+        color: #FFFFFF;
+        font-weight: bold;
+    }}
+
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("☕ 쉬운 키오스크")
-st.write("원하는 글자 크기를 선택하고 편하게 주문하세요.")
+# -------------------------------
+# 3. 상단 환영 화면
+# -------------------------------
+st.title("🏪 무인 주문 키오스크에 오신 것을 환영합니다!")
+st.write("아래에서 원하시는 메뉴를 선택해주세요.")
 
-# 글자 크기 조절
-st.subheader("🔎 글자 크기 조절")
-size_columns = st.columns(3)
+st.markdown(
+    f"""
+    <div class="welcome-box">
+        <strong style="font-size:{font_px * 1.15}px;">
+            편안하게 이용하세요
+        </strong>
+        <p style="margin-bottom:0;">
+            글자가 작아서 읽기 어려우면 아래의
+            'Aa 글자 크기' 버튼을 눌러주세요.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-for i, size_name in enumerate(FONT_SIZES):
-    with size_columns[i]:
-        if st.button(
-            size_name,
-            key="font_" + size_name,
-            type=(
-                "primary"
-                if st.session_state.font_choice == size_name
-                else "secondary"
-            ),
-            use_container_width=True,
-        ):
-            st.session_state.font_choice = size_name
-            st.rerun()
+# -------------------------------
+# 4. 메뉴 선택 화면
+# -------------------------------
+st.header("메뉴 선택")
 
-st.info("현재 글자 크기: " + st.session_state.font_choice)
-
-st.divider()
-
-# 메뉴 선택
-st.header("1. 메뉴 선택")
 menu_columns = st.columns(2)
 
-for i, (name, price) in enumerate(MENU.items()):
-    with menu_columns[i % 2]:
-        st.subheader(name)
-        st.write(f"{price:,}원")
-
+for index, (emoji, category) in enumerate(CATEGORIES):
+    with menu_columns[index % 2]:
         if st.button(
-            name + " 담기",
-            key="add_" + name,
+            f"{emoji}   {category}",
+            key=f"category_{category}",
             use_container_width=True,
         ):
-            st.session_state.cart[name] = (
-                st.session_state.cart.get(name, 0) + 1
-            )
-            st.session_state.notice = name + " 메뉴를 담았습니다."
-            st.rerun()
+            st.session_state.selected_category = category
 
-if st.session_state.notice:
-    st.success(st.session_state.notice)
+if st.session_state.selected_category:
+    st.success(
+        f"'{st.session_state.selected_category}' 메뉴를 선택했습니다."
+    )
+    st.write("이 화면은 키오스크 사용 시연용입니다.")
 
+# -------------------------------
+# 5. 하단 고정형 기능 영역
+# -------------------------------
 st.divider()
 
-# 장바구니
-st.header("2. 주문 확인")
+home_col, size_col, language_col = st.columns([1, 1.5, 1])
 
-if not st.session_state.cart:
-    st.info("선택한 메뉴가 없습니다.")
-else:
-    total = 0
+with home_col:
+    if st.button("⌂ 처음으로", use_container_width=True):
+        st.session_state.selected_category = ""
+        st.session_state.show_font_options = False
+        st.rerun()
 
-    for name in list(st.session_state.cart.keys()):
-        quantity = st.session_state.cart[name]
-        subtotal = MENU[name] * quantity
-        total += subtotal
+with size_col:
+    if st.button(
+        "Aa  글자 크기",
+        type="primary",
+        use_container_width=True,
+    ):
+        st.session_state.show_font_options = (
+            not st.session_state.show_font_options
+        )
+        st.rerun()
 
-        left, right = st.columns([3, 1])
+with language_col:
+    if st.button("◎ 다른 언어", use_container_width=True):
+        st.session_state.language = (
+            "English"
+            if st.session_state.language == "한국어"
+            else "한국어"
+        )
+        st.rerun()
 
-        with left:
-            st.write(
-                f"**{name}** — {quantity}개 "
-                f"({subtotal:,}원)"
-            )
+# -------------------------------
+# 6. 글자 크기 선택 영역
+# -------------------------------
+if st.session_state.show_font_options:
+    st.subheader("🔎 글자 크기를 선택하세요")
+    st.write("원하는 크기를 누르면 화면의 글자가 바뀝니다.")
 
-        with right:
-            if st.button("1개 삭제", key="del_" + name):
-                st.session_state.cart[name] -= 1
+    size_columns = st.columns(3)
 
-                if st.session_state.cart[name] <= 0:
-                    del st.session_state.cart[name]
-
+    for index, size_name in enumerate(FONT_SIZES):
+        with size_columns[index]:
+            if st.button(
+                f"{size_name} ({FONT_SIZES[size_name]}px)",
+                key=f"choose_size_{size_name}",
+                type=(
+                    "primary"
+                    if st.session_state.font_size_name == size_name
+                    else "secondary"
+                ),
+                use_container_width=True,
+            ):
+                st.session_state.font_size_name = size_name
+                st.session_state.show_font_options = True
                 st.rerun()
 
-    st.subheader(f"총 결제 금액: {total:,}원")
+    st.info(
+        f"현재 설정: {st.session_state.font_size_name}"
+    )
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("장바구니 비우기", use_container_width=True):
-            st.session_state.cart = {}
-            st.session_state.notice = "장바구니를 비웠습니다."
-            st.rerun()
-
-    with col2:
-        if st.button(
-            "주문 확인하기",
-            type="primary",
-            use_container_width=True,
-        ):
-            st.success(
-                f"주문 확인 완료! 총 {total:,}원입니다. "
-                "실제 결제는 진행되지 않았습니다."
-            )
-
-st.divider()
-st.caption("키오스크 연습용 앱 · 실제 결제 기능 없음")
+st.caption(
+    "어르신을 위한 글자 크기 조절 키오스크 · 시연용 앱"
+)
